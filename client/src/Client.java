@@ -11,22 +11,23 @@ public class Client {
 
         try (Socket socket = new Socket(ENDERECO_SERVIDOR, PORTA);
              PrintWriter saida = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              Scanner teclado = new Scanner(System.in)) {
 
             System.out.println("Conectado com sucesso! Digite sua mensagem (ou 'sair' para encerrar):");
+
+            Thread threadRecepcao = new Thread(new RecebedorMensagens(socket));
+            threadRecepcao.start();
 
             while (true) {
                 System.out.print("> ");
                 String mensagem = teclado.nextLine();
 
                 if ("sair".equalsIgnoreCase(mensagem)) {
+                    System.out.println("Cliente Encerrado!");
                     break;
                 }
 
                 saida.println(mensagem);
-                String resposta = entrada.readLine();
-                System.out.println("Servidor respondeu: " + resposta);
             }
 
         } catch (IOException e) {
