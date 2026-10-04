@@ -13,7 +13,7 @@ public class Client {
              PrintWriter saida = new PrintWriter(socket.getOutputStream(), true);
              Scanner teclado = new Scanner(System.in)) {
 
-            System.out.println("Conectado com sucesso! Digite sua mensagem (ou 'sair' para encerrar):");
+            System.out.println("Conectado com sucesso! Digite sua mensagem ou 'sair' para encerrar:");
 
             Thread threadRecepcao = new Thread(new RecebedorMensagens(socket));
             threadRecepcao.start();

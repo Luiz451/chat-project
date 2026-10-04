@@ -15,10 +15,8 @@ class RecebedorMensagens implements Runnable {
         try (BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
             String mensagemServidor;
 
-            // Fica em loop infinito aguardando mensagens chegarem
             while ((mensagemServidor = entrada.readLine()) != null) {
                 System.out.println("\n[Servidor]: " + mensagemServidor);
-                // Pequeno truque visual para repintar o cursor do terminal
                 System.out.print("> ");
             }
         } catch (IOException e) {
