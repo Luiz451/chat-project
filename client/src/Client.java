@@ -15,7 +15,7 @@ public class Client {
 
             System.out.println("Conectado com sucesso! Digite sua mensagem ou 'sair' para encerrar:");
 
-            Thread threadRecepcao = new Thread(new RecebedorMensagens(socket));
+            Thread threadRecepcao = new Thread(new MessageReceiver(socket));
             threadRecepcao.start();
 
             while (true) {
