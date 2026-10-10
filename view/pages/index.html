@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat</title>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>Conversas</h2>
+          <span id="my-username" class="my-username">Você (Conectando...)</span>
+        </div>
+        <div id="users-list" class="users-list">
+          <!-- Os contatos/conversas aparecerão aqui dinamicamente -->
+        </div>
+      </aside>
+
+      <!-- Área Principal do Chat -->
+      <div class="chat-main">
+        <header class="chat-header">
+          <div class="header-info">
+            <span id="connection-status-dot" class="status-dot offline"></span>
+            <div>
+              <h1 id="current-chat-title">Selecione uma conversa</h1>
+              <span id="current-recipient-badge" class="status-badge"
+                >Nenhum chat aberto</span
+              >
+            </div>
+          </div>
+          <span id="connection-badge" class="status-badge">Desconectado</span>
+        </header>
+
+        <!-- Área de Mensagens -->
+        <main id="chat-messages" class="chat-messages">
+          <div class="no-chat-selected">
+            <p>Escolha um contato à esquerda para começar a conversar.</p>
+          </div>
+        </main>
+
+        <!-- Barra de Entrada de Mensagem -->
+        <footer class="chat-footer">
+          <form id="chat-form" class="chat-form">
+            <input
+              type="text"
+              id="message-input"
+              placeholder="Selecione um contato primeiro..."
+              autocomplete="off"
+              disabled
+            />
+            <button type="submit" id="send-button" class="send-button" disabled>
+              Enviar
+            </button>
+          </form>
+        </footer>
+      </div>
+    </div>
+
+    <script src="js/chat.js"></script>
+  </body>
+</html>
