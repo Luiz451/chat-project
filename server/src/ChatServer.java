@@ -48,8 +48,6 @@ public class ChatServer {
         @Override
         public void run() {
             try {
-                // Mantemos UTF-8 aqui, mas o PrintWriter do cliente do seu amigo 
-                // usará o padrão do sistema dele (o que funcionará sem problemas de leitura/escrita básica)
                 entrada = new BufferedReader(
                     new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8)
                 );
@@ -63,18 +61,20 @@ public class ChatServer {
                 }
 
             } catch (IOException e) {
-                System.out.println("Conexão perdida com o cliente: " + (usuarioAtual != null ? usuarioAtual : "anónimo"));
+                System.out.println("Conexão perdida com o cliente: " + (usuarioAtual != null ? usuarioAtual : "anônimo"));
             } finally {
                 desconectar();
             }
         }
 
         private void processarMensagemProtocolo(String rawMessage) {
+           
             String[] partes = rawMessage.split(";", 4);
             String comando = partes[0];
 
             switch (comando) {
-                case "REGISTRAR":
+                
+                case "REGISTRO":
                     if (partes.length >= 3) {
                         String user = partes[1];
                         String pass = partes[2];
@@ -85,31 +85,32 @@ public class ChatServer {
                             saida.println("RESPOSTA_REGISTRO;SUCESSO");
                         }
                     } else {
-                        saida.println("ERRO;Parametros insuficientes para REGISTRAR");
+                        saida.println("ERRO;Parametros insuficientes para REGISTRO");
                     }
                     break;
 
-                case "LOGIN":
+                
+                case "PEDIDO_ACESSO":
                     if (partes.length >= 3) {
                         String user = partes[1];
                         String pass = partes[2];
                         if (usuariosCadastrados.containsKey(user) && usuariosCadastrados.get(user).equals(pass)) {
                             this.usuarioAtual = user;
                             sessoesAtivas.put(user, this);
-                            saida.println("RESPOSTA_LOGIN;SUCESSO");
+                            saida.println("RESPOSTA_ACESSO;SUCESSO");
                             System.out.println("Utilizador autenticado com sucesso: " + user);
                         } else {
-                            saida.println("RESPOSTA_LOGIN;FALHA;Credenciais invalidas");
+                            saida.println("RESPOSTA_ACESSO;FALHA;Credenciais invalidas");
                         }
                     } else {
-                        saida.println("ERRO;Parametros insuficientes para LOGIN");
+                        saida.println("ERRO;Parametros insuficientes para PEDIDO_ACESSO");
                     }
                     break;
 
-                // Novo comando "Pull" para o cliente consultar quem está online/offline sob demanda
-                case "LISTAR_USUARIOS":
+           
+                case "LISTA_CONTATOS":
                     if (usuarioAtual != null) {
-                        StringBuilder resposta = new StringBuilder("RESPOSTA_LISTA_USUARIOS");
+                        StringBuilder resposta = new StringBuilder("RESPOSTA_LISTA_CONTATOS");
                         for (String user : usuariosCadastrados.keySet()) {
                             String status = sessoesAtivas.containsKey(user) ? "ONLINE" : "OFFLINE";
                             resposta.append(";").append(user).append(":").append(status);
@@ -120,43 +121,43 @@ public class ChatServer {
                     }
                     break;
 
-                    case "MSG":
-                        if (partes.length >= 3 && usuarioAtual != null) {
-                            String destinatario = partes[1];
-                            String texto = partes[2];
-                            String timestamp = LocalDateTime.now().toString();
-                            
-                            String pacoteMensagem = String.format("ENTREGA_MSG;%s;%s;%s;%s", usuarioAtual, destinatario, timestamp, texto);
-                            
-                            // Confirma para quem enviou que a solicitação foi processada
-                            saida.println("RESPOSTA_MSG;SUCESSO");
-    
-                            ClientHandler handlerDestino = sessoesAtivas.get(destinatario);
-                            if (handlerDestino != null) {
-                                // Como o cliente do seu colega já tem thread de escuta, 
-                                // podemos enviar a mensagem DIRETAMENTE em tempo real!
-                                handlerDestino.saida.println(pacoteMensagem);
-                            } else {
-                                // Se estiver offline, guarda na fila para quando ele logar
-                                filaOffline.computeIfAbsent(destinatario, k -> new ConcurrentLinkedQueue<>()).add(pacoteMensagem);
-                                System.out.println("Destinatário " + destinatario + " offline. Mensagem guardada na fila.");
-                            }
+                case "MENSAGEM":
+                    if (partes.length >= 3 && usuarioAtual != null) {
+                        String destinatario = partes[1];
+                        String texto = partes[2];
+                        String timestamp = String.valueOf(System.currentTimeMillis());
+                        
+                        
+                        String pacoteMensagem = String.format("ENTREGA_MENSAGEM;%s;%s;%s;%s", usuarioAtual, destinatario, timestamp, texto);
+                        
+                        /
+                        saida.println("RESPOSTA_MENSAGEM;SUCESSO");
+
+                        ClientHandler handlerDestino = sessoesAtivas.get(destinatario);
+                        if (handlerDestino != null) {
+                            handlerDestino.saida.println(pacoteMensagem);
                         } else {
-                            saida.println("ERRO;Parametros invalidos ou nao autenticado");
+                           
+                            filaOffline.computeIfAbsent(destinatario, k -> new ConcurrentLinkedQueue<>()).add(pacoteMensagem);
+                            System.out.println("Destinatário " + destinatario + " offline. Mensagem guardada na fila.");
                         }
-                        break;
+                    } else {
+                        saida.println("ERRO;Parametros invalidos ou nao autenticado");
+                    }
+                    break;
                 
-                case "BUSCAR_MENSAGENS":
+                
+                case "FILA_OFFLINE":
                     if (usuarioAtual != null) {
                         Queue<String> mensagensPendentes = filaOffline.remove(usuarioAtual);
                         if (mensagensPendentes != null && !mensagensPendentes.isEmpty()) {
-                            StringBuilder sb = new StringBuilder("RESPOSTA_MENSAGENS");
+                            StringBuilder sb = new StringBuilder("RESPOSTA_FILA_OFFLINE");
                             for (String msg : mensagensPendentes) {
                                 sb.append("|").append(msg);
                             }
                             saida.println(sb.toString());
                         } else {
-                            saida.println("RESPOSTA_MENSAGENS;VAZIO");
+                            saida.println("RESPOSTA_FILA_OFFLINE;VAZIO");
                         }
                     } else {
                         saida.println("ERRO;Necessario efetuar login");
