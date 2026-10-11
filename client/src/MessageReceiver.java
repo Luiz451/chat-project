@@ -1,25 +1,35 @@
-import java.io.BufferedReader;
+import protocol.ProtocolPack;
+import persistence.ClientPersistence;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.Socket;
+import java.io.ObjectInputStream;
 
 class MessageReceiver implements Runnable {
-    private final Socket socket;
+    private final ObjectInputStream entrada;
+    private final ClientPersistence bancoLocal;
+    private final LocalUIBridge interfaceWeb;
 
-    public MessageReceiver(Socket socket) {
-        this.socket = socket;
+    public MessageReceiver(ObjectInputStream entrada, ClientPersistence bancoLocal, LocalUIBridge interfaceWeb) {
+        this.entrada = entrada;
+        this.bancoLocal = bancoLocal;
+        this.interfaceWeb = interfaceWeb;
     }
 
     @Override
     public void run() {
-        try (BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-            String ServerMessage;
+        try {
+            ProtocolPack pacoteServidor;
+            while ((pacoteServidor = (ProtocolPack) entrada.readObject()) != null) {
 
-            while ((ServerMessage = input.readLine()) != null) {
-                System.out.println("\n[Servidor]: " + ServerMessage);
+                if (pacoteServidor.getEvent() == ProtocolPack.Evento.ENTREGA_MENSAGEM) {
+                    System.out.println("\n[" + pacoteServidor.getSender() + " -> Você]: " + pacoteServidor.getText());
+                    bancoLocal.salvarMensagem(pacoteServidor);
+                    interfaceWeb.enviarParaHTML(pacoteServidor.getSender(), pacoteServidor.getText());
+                } else {
+                    System.out.println("\n[Servidor -> " + pacoteServidor.getEvent() + "]: " + pacoteServidor.getText());
+                }
                 System.out.print("> ");
             }
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException e) {
             System.out.println("\nConexão com o servidor foi encerrada.");
         }
     }

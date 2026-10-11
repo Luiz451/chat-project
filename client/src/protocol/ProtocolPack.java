@@ -1,6 +1,8 @@
 package protocol;
 
-public class ProtocolPack {
+import java.io.Serializable;
+
+public class ProtocolPack implements Serializable {
     public static final long serialVersionUID = 1L;
 
     public enum Evento {
@@ -24,6 +26,7 @@ public class ProtocolPack {
         this.recipient = recipient;
         this.sucess = sucess;
         this.text = text;
+        // O System.currentTimeMillis() garante que a data/hora exata seja cravada no momento da criação
         this.timestamp = System.currentTimeMillis();
     }
 
@@ -65,5 +68,13 @@ public class ProtocolPack {
 
     public void setSucess(boolean sucess) {
         this.sucess = sucess;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 }
