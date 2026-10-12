@@ -9,12 +9,11 @@ import persistence.ServerPersistenceArquivo;
 
 public class ChatServer {
     private static final int PORTA = 12345;
-
     private static final Map<String, ClientHandler> sessoesAtivas = new ConcurrentHashMap<>();
-
-    private static final Map<String, String> usuariosCadastrados = new ConcurrentHashMap<>();
-
     private static final ServerPersistence bancoDeDados = new ServerPersistenceArquivo();
+
+    // Inicia carregando os utilizadores do disco!
+    private static final Map<String, String> usuariosCadastrados = new ConcurrentHashMap<>(bancoDeDados.carregarUsuarios());
 
     public static void main(String[] args) {
         try (ServerSocket servidorSocket = new ServerSocket(PORTA)) {
@@ -44,13 +43,11 @@ public class ChatServer {
                 saida = new ObjectOutputStream(socket.getOutputStream());
                 saida.flush();
                 entrada = new ObjectInputStream(socket.getInputStream());
-
                 ProtocolPack pacoteRecebido;
                 while ((pacoteRecebido = (ProtocolPack) entrada.readObject()) != null) {
                     processarPacote(pacoteRecebido);
                 }
             } catch (IOException | ClassNotFoundException e) {
-                System.out.println("Conexão perdida com: " + (usuarioAtual != null ? usuarioAtual : "anônimo"));
             } finally {
                 desconectar();
             }
@@ -58,104 +55,82 @@ public class ChatServer {
 
         private void processarPacote(ProtocolPack pacote) {
             ProtocolPack resposta;
-
             switch (pacote.getEvent()) {
                 case REGISTRO:
                     String newUser = pacote.getSender();
-                    String newPass = pacote.getText();
-
-                    if (usuariosCadastrados.containsKey(newUser)) {
-                        resposta = new ProtocolPack(ProtocolPack.Evento.RESPOSTA_REGISTRO, "Servidor", newUser, System.currentTimeMillis(), "Falha: Utilizador já existe", false);
-                    } else {
-                        usuariosCadastrados.put(newUser, newPass);
-                        resposta = new ProtocolPack(ProtocolPack.Evento.RESPOSTA_REGISTRO, "Servidor", newUser, System.currentTimeMillis(), "Sucesso", true);
+                    if (!usuariosCadastrados.containsKey(newUser)) {
+                        usuariosCadastrados.put(newUser, pacote.getText());
+                        bancoDeDados.salvarUsuario(newUser, pacote.getText()); // Grava fisicamente
+                        enviarPacote(new ProtocolPack(ProtocolPack.Evento.RESPOSTA_REGISTRO, "Servidor", newUser, System.currentTimeMillis(), "Sucesso", true));
+                        enviarListaContatosParaTodos();
                     }
-                    enviarPacote(resposta);
                     break;
-
                 case PEDIDO_ACESSO:
                     String loginUser = pacote.getSender();
-                    String loginPass = pacote.getText();
-
-                    if (usuariosCadastrados.containsKey(loginUser) && usuariosCadastrados.get(loginUser).equals(loginPass)) {
+                    if (usuariosCadastrados.containsKey(loginUser) && usuariosCadastrados.get(loginUser).equals(pacote.getText())) {
                         this.usuarioAtual = loginUser;
                         sessoesAtivas.put(loginUser, this);
-                        resposta = new ProtocolPack(ProtocolPack.Evento.RESPOSTA_ACESSO, "Servidor", loginUser, System.currentTimeMillis(), "Sucesso", true);
-                        enviarPacote(resposta);
-
+                        enviarPacote(new ProtocolPack(ProtocolPack.Evento.RESPOSTA_ACESSO, "Servidor", loginUser, System.currentTimeMillis(), "Sucesso", true));
                         entregarMensagensPendentes();
+                        enviarListaContatosParaTodos();
                     } else {
-                        resposta = new ProtocolPack(ProtocolPack.Evento.RESPOSTA_ACESSO, "Servidor", loginUser, System.currentTimeMillis(), "Falha: Credenciais inválidas", false);
-                        enviarPacote(resposta);
+                        enviarPacote(new ProtocolPack(ProtocolPack.Evento.RESPOSTA_ACESSO, "Servidor", loginUser, System.currentTimeMillis(), "Falha", false));
                     }
                     break;
-
                 case MENSAGEM:
                     if (usuarioAtual != null) {
                         String destinatario = pacote.getRecipient();
-
-                        ProtocolPack pacoteEntrega = new ProtocolPack(
-                                ProtocolPack.Evento.ENTREGA_MENSAGEM,
-                                usuarioAtual,
-                                destinatario,
-                                pacote.getTimestamp(),
-                                pacote.getText(),
-                                true
-                        );
-
+                        ProtocolPack pacoteEntrega = new ProtocolPack(ProtocolPack.Evento.ENTREGA_MENSAGEM, usuarioAtual, destinatario, pacote.getTimestamp(), pacote.getText(), true);
                         ClientHandler handlerDestino = sessoesAtivas.get(destinatario);
                         if (handlerDestino != null) {
                             handlerDestino.enviarPacote(pacoteEntrega);
                         } else {
                             bancoDeDados.salvarMensagem(pacoteEntrega);
-                            System.out.println("Mensagem de " + usuarioAtual + " para " + destinatario + " guardada na fila.");
                         }
                     }
                     break;
-
-                    case LISTAR_USUARIOS:
-                        if (usuarioAtual != null) {
-                            
-                            List<String> todosUsuarios = new ArrayList<>(usuariosCadastrados.keySet());
-    
-                            resposta = new ProtocolPack(
-                                    ProtocolPack.Evento.RESPOSTA_LISTA_USUARIOS, 
-                                    "Servidor", 
-                                    usuarioAtual, 
-                                    System.currentTimeMillis(), 
-                                    todosUsuarios.toString(), 
-                                    true
-                            );
-                            enviarPacote(resposta);
+                case INICIO_DIGITACAO:
+                case FIM_DIGITACAO:
+                    if (usuarioAtual != null) {
+                        ClientHandler handlerDestino = sessoesAtivas.get(pacote.getRecipient());
+                        if (handlerDestino != null) {
+                            handlerDestino.enviarPacote(new ProtocolPack(pacote.getEvent(), usuarioAtual, pacote.getRecipient(), System.currentTimeMillis(), "", true));
                         }
-                        break;
-
+                    }
+                    break;
                 default:
                     break;
+            }
+        }
+
+        private void enviarListaContatosParaTodos() {
+            StringBuilder sb = new StringBuilder();
+            for (String user : usuariosCadastrados.keySet()) {
+                String status = sessoesAtivas.containsKey(user) ? "ONLINE" : "OFFLINE";
+                sb.append(user).append(":").append(status).append(",");
+            }
+            ProtocolPack lista = new ProtocolPack(ProtocolPack.Evento.LISTA_CONTATOS, "Servidor", "Todos", System.currentTimeMillis(), sb.toString(), true);
+            for (ClientHandler ch : sessoesAtivas.values()) {
+                ch.enviarPacote(lista);
             }
         }
 
         private void entregarMensagensPendentes() {
             List<ProtocolPack> pendentes = bancoDeDados.buscarMensagensPendentes(usuarioAtual);
             if (pendentes != null && !pendentes.isEmpty()) {
-                for (ProtocolPack msg : pendentes) {
-                    enviarPacote(msg);
-                }
+                for (ProtocolPack msg : pendentes) { enviarPacote(msg); }
                 bancoDeDados.marcarComoEntregues(usuarioAtual);
             }
         }
 
         public void enviarPacote(ProtocolPack pacote) {
-            try {
-                saida.writeObject(pacote);
-                saida.flush();
-            } catch (IOException e) {
-            }
+            try { saida.writeObject(pacote); saida.flush(); } catch (IOException e) {}
         }
 
         private void desconectar() {
             if (usuarioAtual != null) {
                 sessoesAtivas.remove(usuarioAtual);
+                enviarListaContatosParaTodos();
             }
         }
     }

@@ -10,14 +10,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ServerPersistenceArquivo implements ServerPersistence {
     private static final String DIRETORIO_HISTORICO = "historico_servidor";
     private static final String DIRETORIO_OFFLINE = "fila_offline";
-    private static final String ARQUIVO_USUARIOS = "usuarios_cadastrados.txt";
+    private static final String ARQUIVO_USUARIOS = "usuarios.txt";
 
     public ServerPersistenceArquivo() {
         File dirHistorico = new File(DIRETORIO_HISTORICO);
         if (!dirHistorico.exists()) {
             dirHistorico.mkdir();
         }
-
         File dirOffline = new File(DIRETORIO_OFFLINE);
         if (!dirOffline.exists()) {
             dirOffline.mkdir();
@@ -34,10 +33,7 @@ public class ServerPersistenceArquivo implements ServerPersistence {
 
     @Override
     public void salvarMensagem(ProtocolPack message) {
-        // Salva tanto no histórico geral da conversa (para consulta futura)...
         salvarNoHistoricoGeral(message);
-
-        // ...quanto na fila offline do destinatário (caso precise ser entregue depois)
         String arquivoFila = DIRETORIO_OFFLINE + File.separator + message.getRecipient() + ".txt";
         try (PrintWriter out = new PrintWriter(new FileWriter(arquivoFila, true))) {
             String textoLimpo = message.getText().replace("\n", " ");
@@ -61,9 +57,7 @@ public class ServerPersistenceArquivo implements ServerPersistence {
     public List<ProtocolPack> listarHistorico(String user1, String user2) {
         List<ProtocolPack> historico = new ArrayList<>();
         File arquivo = new File(gerarNomeArquivoHistorico(user1, user2));
-
         if (!arquivo.exists()) return historico;
-
         try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
             String linha;
             while ((linha = br.readLine()) != null) {
@@ -71,11 +65,7 @@ public class ServerPersistenceArquivo implements ServerPersistence {
                 if (partes.length == 4) {
                     ProtocolPack pacote = new ProtocolPack(
                             ProtocolPack.Evento.ENTREGA_MENSAGEM,
-                            partes[1], // remetente
-                            partes[2], // destinatário
-                            Long.parseLong(partes[0]), // timestamp
-                            partes[3], // texto
-                            true
+                            partes[1], partes[2], Long.parseLong(partes[0]), partes[3], true
                     );
                     historico.add(pacote);
                 }
@@ -90,9 +80,7 @@ public class ServerPersistenceArquivo implements ServerPersistence {
     public List<ProtocolPack> buscarMensagensPendentes(String username) {
         List<ProtocolPack> fila = new ArrayList<>();
         File arquivo = new File(DIRETORIO_OFFLINE + File.separator + username + ".txt");
-
         if (!arquivo.exists()) return fila;
-
         try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
             String linha;
             while ((linha = br.readLine()) != null) {
@@ -100,11 +88,7 @@ public class ServerPersistenceArquivo implements ServerPersistence {
                 if (partes.length == 3) {
                     ProtocolPack pack = new ProtocolPack(
                             ProtocolPack.Evento.ENTREGA_MENSAGEM,
-                            partes[1], // remetente
-                            username,  // destinatario
-                            Long.parseLong(partes[0]), // timestamp
-                            partes[2], // texto
-                            true
+                            partes[1], username, Long.parseLong(partes[0]), partes[2], true
                     );
                     fila.add(pack);
                 }
@@ -119,18 +103,16 @@ public class ServerPersistenceArquivo implements ServerPersistence {
     public void marcarComoEntregues(String username) {
         File arquivo = new File(DIRETORIO_OFFLINE + File.separator + username + ".txt");
         if (arquivo.exists()) {
-            arquivo.delete(); // Esvazia a fila apagando o arquivo temporário
+            arquivo.delete();
         }
     }
-
-    // --- NOVOS MÉTODOS PARA PERSISTÊNCIA DE USUÁRIOS ---
 
     @Override
     public void salvarUsuario(String username, String senha) {
         try (PrintWriter out = new PrintWriter(new FileWriter(ARQUIVO_USUARIOS, true))) {
-            out.println(username + "|" + senha);
+            out.println(username.toLowerCase() + "|" + senha);
         } catch (IOException e) {
-            System.err.println("Erro ao salvar usuário no arquivo: " + e.getMessage());
+            System.err.println("Erro ao salvar usuário: " + e.getMessage());
         }
     }
 
@@ -138,19 +120,17 @@ public class ServerPersistenceArquivo implements ServerPersistence {
     public Map<String, String> carregarUsuarios() {
         Map<String, String> usuarios = new ConcurrentHashMap<>();
         File arquivo = new File(ARQUIVO_USUARIOS);
-
         if (!arquivo.exists()) return usuarios;
-
         try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
             String linha;
             while ((linha = br.readLine()) != null) {
                 String[] partes = linha.split("\\|", 2);
                 if (partes.length == 2) {
-                    usuarios.put(partes[0], partes[1]);
+                    usuarios.put(partes[0].toLowerCase(), partes[1]);
                 }
             }
         } catch (IOException e) {
-            System.err.println("Erro ao carregar usuários cadastrados: " + e.getMessage());
+            System.err.println("Erro ao carregar usuários: " + e.getMessage());
         }
         return usuarios;
     }
