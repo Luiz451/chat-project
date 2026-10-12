@@ -44,14 +44,13 @@ public class Client {
                     java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
                     System.out.println("Navegador aberto automaticamente!");
                 } else {
-                    System.out.println("HTML não encontrado automaticamente. Abre o ficheiro view/pages/index.html?port=" + portaAutomatica + " no teu navegador.");
+                    System.out.println("HTML não encontrado automaticamente. Abre view/pages/index.html?port=" + portaAutomatica);
                 }
             } catch (Exception e) {
-                System.out.println("Aviso: Não foi possível abrir o navegador. Faz a abertura manualmente.");
+                System.out.println("Aviso: Não foi possível abrir o navegador.");
             }
 
             System.out.println("Conectado ao Servidor Central!");
-
             Thread threadRecepcao = new Thread(new MessageReceiver(entrada, bancoLocal, interfaceWeb));
             threadRecepcao.start();
 
@@ -70,11 +69,10 @@ public class Client {
     public void processarComandoDaInterface(String input) {
         try {
             if (input.startsWith("CARREGAR_HISTORICO;")) {
-                String contato = input.split(";", 2)[1].trim();
+                String contato = input.split(";", 2)[1].trim().toLowerCase();
                 List<ProtocolPack> historico = bancoLocal.listarHistorico(meuUsuario, contato);
-
                 for (ProtocolPack p : historico) {
-                    interfaceWeb.enviarParaHTML(p.getSender(), p.getText());
+                    interfaceWeb.enviarParaHTML("ENTREGA_MENSAGEM", p.getSender(), p.getText());
                 }
                 return;
             }
@@ -82,7 +80,7 @@ public class Client {
             String[] partes = input.split(";", 3);
             if (partes.length >= 2) {
                 ProtocolPack.Evento evento = ProtocolPack.Evento.valueOf(partes[0].trim().toUpperCase());
-                String destinoOuUsuario = partes[1].trim();
+                String destinoOuUsuario = partes[1].trim().toLowerCase();
                 String texto = partes.length > 2 ? partes[2].trim() : "";
 
                 if (evento == ProtocolPack.Evento.REGISTRO || evento == ProtocolPack.Evento.PEDIDO_ACESSO) {

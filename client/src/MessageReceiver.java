@@ -23,10 +23,10 @@ class MessageReceiver implements Runnable {
                 if (pacoteServidor.getEvent() == ProtocolPack.Evento.ENTREGA_MENSAGEM) {
                     System.out.println("\n[" + pacoteServidor.getSender() + " -> Você]: " + pacoteServidor.getText());
                     bancoLocal.salvarMensagem(pacoteServidor);
-                    interfaceWeb.enviarParaHTML(pacoteServidor.getSender(), pacoteServidor.getText());
-                } else {
-                    System.out.println("\n[Servidor -> " + pacoteServidor.getEvent() + "]: " + pacoteServidor.getText());
                 }
+
+                interfaceWeb.enviarParaHTML(pacoteServidor.getEvent().name(), pacoteServidor.getSender(), pacoteServidor.getText());
+
                 System.out.print("> ");
             }
         } catch (IOException | ClassNotFoundException e) {
