@@ -16,4 +16,7 @@ public interface ServerPersistence {
 
 
     void marcarComoEntregues(String username);
+
+    void salvarUsuario(String username, String senha);
+    java.util.Map<String, String> carregarUsuarios();
 }

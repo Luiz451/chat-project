@@ -113,6 +113,23 @@ public class ChatServer {
                     }
                     break;
 
+                    case LISTAR_USUARIOS:
+                        if (usuarioAtual != null) {
+                            
+                            List<String> todosUsuarios = new ArrayList<>(usuariosCadastrados.keySet());
+    
+                            resposta = new ProtocolPack(
+                                    ProtocolPack.Evento.RESPOSTA_LISTA_USUARIOS, 
+                                    "Servidor", 
+                                    usuarioAtual, 
+                                    System.currentTimeMillis(), 
+                                    todosUsuarios.toString(), 
+                                    true
+                            );
+                            enviarPacote(resposta);
+                        }
+                        break;
+
                 default:
                     break;
             }

@@ -1,3 +1,5 @@
+package persistence;
+
 import protocol.ProtocolPack;
 import persistence.ClientPersistence;
 import persistence.ClientPersistenceArquivo;
@@ -94,7 +96,7 @@ public class Client {
                 );
 
                 saida.writeObject(pacote);
-                saida.flush();
+                saita.flush(); // Correção: saida.flush()
 
                 if (evento == ProtocolPack.Evento.MENSAGEM) {
                     bancoLocal.salvarMensagem(pacote);

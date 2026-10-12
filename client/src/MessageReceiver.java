@@ -24,13 +24,19 @@ class MessageReceiver implements Runnable {
                     System.out.println("\n[" + pacoteServidor.getSender() + " -> Você]: " + pacoteServidor.getText());
                     bancoLocal.salvarMensagem(pacoteServidor);
                     interfaceWeb.enviarParaHTML(pacoteServidor.getSender(), pacoteServidor.getText());
-                } else {
+                } 
+                else if (pacoteServidor.getEvent() == ProtocolPack.Evento.RESPOSTA_LISTA_USUARIOS) {
+                    System.out.println("\n[Servidor -> Lista de Usuarios]: " + pacoteServidor.getText());
+                    interfaceWeb.enviarParaHTML("RESPOSTA_LISTA_USUARIOS", pacoteServidor.getText());
+                } 
+                else {
                     System.out.println("\n[Servidor -> " + pacoteServidor.getEvent() + "]: " + pacoteServidor.getText());
                 }
+                
                 System.out.print("> ");
             }
         } catch (IOException | ClassNotFoundException e) {
-            System.out.println("\nConexão com o servidor foi encerrada.");
+            System.out.println("\nConexao com o servidor foi encerrada.");
         }
     }
 }

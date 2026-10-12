@@ -4,10 +4,13 @@ import protocol.ProtocolPack;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ServerPersistenceArquivo implements ServerPersistence {
     private static final String DIRETORIO_HISTORICO = "historico_servidor";
     private static final String DIRETORIO_OFFLINE = "fila_offline";
+    private static final String ARQUIVO_USUARIOS = "usuarios_cadastrados.txt";
 
     public ServerPersistenceArquivo() {
         File dirHistorico = new File(DIRETORIO_HISTORICO);
@@ -118,5 +121,37 @@ public class ServerPersistenceArquivo implements ServerPersistence {
         if (arquivo.exists()) {
             arquivo.delete(); // Esvazia a fila apagando o arquivo temporário
         }
+    }
+
+    // --- NOVOS MÉTODOS PARA PERSISTÊNCIA DE USUÁRIOS ---
+
+    @Override
+    public void salvarUsuario(String username, String senha) {
+        try (PrintWriter out = new PrintWriter(new FileWriter(ARQUIVO_USUARIOS, true))) {
+            out.println(username + "|" + senha);
+        } catch (IOException e) {
+            System.err.println("Erro ao salvar usuário no arquivo: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public Map<String, String> carregarUsuarios() {
+        Map<String, String> usuarios = new ConcurrentHashMap<>();
+        File arquivo = new File(ARQUIVO_USUARIOS);
+
+        if (!arquivo.exists()) return usuarios;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
+            String linha;
+            while ((linha = br.readLine()) != null) {
+                String[] partes = linha.split("\\|", 2);
+                if (partes.length == 2) {
+                    usuarios.put(partes[0], partes[1]);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Erro ao carregar usuários cadastrados: " + e.getMessage());
+        }
+        return usuarios;
     }
 }
